@@ -63,6 +63,8 @@ static esp_err_t i2c_master_driver_initialize(void) {
     return i2c_param_config(i2c_master_port, &conf);
 }
 
+
+
 /** 
  * @brief Função genérica de leitura i2c de [size] bytes no [address]
  * 
@@ -76,8 +78,7 @@ esp_err_t sgp30_i2c_master_read(uint8_t *data_read, size_t size) {
     uint8_t chip_addr = SGP30_ADDR;
     uint8_t len = size;
 
-    i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-    ESP_ERROR_CHECK(i2c_master_driver_initialize());
+    // ESP_ERROR_CHECK(i2c_master_driver_initialize());
 
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
         
@@ -110,7 +111,7 @@ esp_err_t sgp30_i2c_master_read(uint8_t *data_read, size_t size) {
         ESP_LOGW(TAG, "I2C Read failed");
     }
 
-    i2c_driver_delete(I2C_NUM_0);
+    // i2c_driver_delete(I2C_NUM_0);
     
     return 0;
 }
@@ -130,8 +131,8 @@ esp_err_t sgp30_i2c_master_write(uint8_t *data_wr, size_t size) {
     uint8_t chip_addr = SGP30_ADDR;
     uint8_t len = size;
 
-    i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-    ESP_ERROR_CHECK(i2c_master_driver_initialize());
+    // i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    // ESP_ERROR_CHECK(i2c_master_driver_initialize());
 
 
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -165,22 +166,25 @@ esp_err_t sgp30_i2c_master_write(uint8_t *data_wr, size_t size) {
         ESP_LOGW(TAG, "I2C Read failed");
     }
 
-    i2c_driver_delete(I2C_NUM_0);
+    // i2c_driver_delete(I2C_NUM_0);
 
     return 0;
 }
 
 void sgp30_init(sgp30_t *sensor) {
+    i2c_master_driver_initialize();    
+    vTaskDelay(1000 / portTICK_RATE_MS);
+    
     sgp30_execute_command(GET_SERIAL_ID, 2, 10, sensor->serial_number, 3);
     ESP_LOGI(TAG, "%s - Serial Number: %02x %02x %02x", __FUNCTION__, sensor->serial_number[0],
                                 sensor->serial_number[1], sensor->serial_number[2]);
-
 
     uint16_t featureset;
     // uint8_t command2[2] = { GET_FEATURE_SET_VERSION };
     sgp30_execute_command(GET_FEATURE_SET_VERSION, 2, 10, &featureset, 1);
     ESP_LOGI(TAG, "%s - Feature set version: %02x", __FUNCTION__, featureset);
 
+    
     sgp30_IAQ_init(sensor);
 }
 
