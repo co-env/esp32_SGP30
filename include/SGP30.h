@@ -31,6 +31,9 @@
 #define SGP30_CRC8_INIT 0xFF       /**< Init value for CRC */
 #define SGP30_WORD_LEN 2           /**< 2 bytes per word */
 
+//!!!
+#define NULL_REG 0xFF //????? 
+//!!!
 
 /** SGP30 Main Data Struct */
 typedef struct {
@@ -55,12 +58,26 @@ typedef struct {
 
 } sgp30_t;
 
+/*** Function Pointers ***/
+typedef int8_t (*sgp30_read_fptr_t)(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr);
+typedef int8_t (*sgp30_write_fptr_t)(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr);
+struct SGP30_dev {
+    /*< Interface function pointer used to enable the device address for I2C and chip selection for SPI */
+    void *intf_ptr;
+
+    /*< Read function pointer */
+    sgp30_read_fptr_t i2c_read;
+
+    /*< Write function pointer */
+    sgp30_write_fptr_t i2c_write;
+};
+
 
 /**
  *  @brief  Setups the hardware and detects a valid SGP30. Initializes I2C
  *          then reads the serialnumber and checks that we are talking to an SGP30.
  */
-void sgp30_init(sgp30_t *sensor);
+void sgp30_init(sgp30_t *sensor, sgp30_read_fptr_t user_i2c_read, sgp30_write_fptr_t user_i2c_write);
 
 /**
  *   @brief  Commands the sensor to perform a soft reset using the "General

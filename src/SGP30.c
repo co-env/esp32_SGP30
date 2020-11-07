@@ -14,25 +14,6 @@
 
 static const char *TAG = "SGP30-LIB";
 
-#define _I2C_NUMBER(num) I2C_NUM_##num
-#define I2C_NUMBER(num) _I2C_NUMBER(num)
-
-#define I2C_MASTER_NUM I2C_NUMBER(CONFIG_I2C_MASTER_PORT_NUM) /*!< I2C port number for master dev */
-
-#define WRITE_BIT I2C_MASTER_WRITE              /*!< I2C master write */
-#define READ_BIT I2C_MASTER_READ                /*!< I2C master read */
-#define ACK_CHECK_EN 0x1                        /*!< I2C master will check ack from slave*/
-#define ACK_CHECK_DIS 0x0                       /*!< I2C master will not check ack from slave */
-#define ACK_VAL 0x0                             /*!< I2C ack value */
-#define NACK_VAL 0x1                            /*!< I2C nack value */
-
-#define I2C_MASTER_SCL_IO CONFIG_I2C_MASTER_SCL               /*!< gpio number for I2C master clock */
-#define I2C_MASTER_SDA_IO CONFIG_I2C_MASTER_SDA               /*!< gpio number for I2C master data  */
-#define I2C_MASTER_NUM I2C_NUMBER(CONFIG_I2C_MASTER_PORT_NUM) /*!< I2C port number for master dev */
-#define I2C_MASTER_FREQ_HZ CONFIG_I2C_MASTER_FREQUENCY        /*!< I2C master clock frequency */
-#define I2C_MASTER_TX_BUF_DISABLE 0                           /*!< I2C master doesn't need buffer */
-#define I2C_MASTER_RX_BUF_DISABLE 0                           /*!< I2C master doesn't need buffer */
-
 /***********************
  * I²C 16-bit Commands *
  ***********************/
@@ -47,134 +28,19 @@ static uint8_t MEASURE_RAW_SIGNALS[2] =     { 0x20, 0x50 };
 static uint8_t GET_SERIAL_ID[2] =           { 0x36, 0x82 };
 static uint8_t SOFT_RESET[2] =              { 0x00, 0x06 };
 
+struct SGP30_dev dev;
+static uint8_t dev_addr = SGP30_ADDR;
 
-// ESP I2C Driver setup 
-static esp_err_t i2c_master_driver_initialize(void) {
-    int i2c_master_port = I2C_MASTER_NUM;
-    i2c_config_t conf;
 
-    conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = I2C_MASTER_SDA_IO;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.scl_io_num = I2C_MASTER_SCL_IO;
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
+
+void sgp30_init(sgp30_t *sensor, sgp30_read_fptr_t user_i2c_read, sgp30_write_fptr_t user_i2c_write) {
+    // i2c_master_driver_initialize();    
+    // vTaskDelay(1000 / portTICK_RATE_MS);
     
-    return i2c_param_config(i2c_master_port, &conf);
-}
+    dev.intf_ptr = &dev_addr; 
+    dev.i2c_read = user_i2c_read;
+    dev.i2c_write = user_i2c_write;
 
-
-
-/** 
- * @brief Função genérica de leitura i2c de [size] bytes no [address]
- * 
- */
-
-esp_err_t sgp30_i2c_master_read(uint8_t *data_read, size_t size) {
-    if (size == 0) {
-        return ESP_OK;
-    }
-
-    uint8_t chip_addr = SGP30_ADDR;
-    uint8_t len = size;
-
-    // ESP_ERROR_CHECK(i2c_master_driver_initialize());
-
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-        
-    // Generates I2C START signal
-    i2c_master_start(cmd);
-
-    // Sends I2C READ header
-    i2c_master_write_byte(cmd, chip_addr << 1 | READ_BIT, ACK_CHECK_EN);
-
-    // Reads incoming data
-    if (len > 1) {
-        i2c_master_read(cmd, data_read, len - 1, ACK_VAL);
-    }
-    i2c_master_read_byte(cmd, data_read + len - 1, NACK_VAL);
-    
-    // Sends I2C STOP signal
-    i2c_master_stop(cmd);
-
-
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 2000 / portTICK_RATE_MS);
-
-
-    i2c_cmd_link_delete(cmd);
-
-    if (ret == ESP_OK) {
-        // ESP_LOGI(TAG, "I2C Read Success: %02x", data_rd[0]);
-    } else if (ret == ESP_ERR_TIMEOUT) {
-        ESP_LOGW(TAG, "I2C Read bus is busy");
-    } else {
-        ESP_LOGW(TAG, "I2C Read failed");
-    }
-
-    // i2c_driver_delete(I2C_NUM_0);
-    
-    return 0;
-}
-
-
-
-/** 
- * @brief Função genérica de escrita i2c de [size] bytes no [address]
- * 
- */
-
-esp_err_t sgp30_i2c_master_write(uint8_t *data_wr, size_t size) {
-    if (size == 0) {
-        return ESP_OK;
-    }
-
-    uint8_t chip_addr = SGP30_ADDR;
-    uint8_t len = size;
-
-    // i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-    // ESP_ERROR_CHECK(i2c_master_driver_initialize());
-
-
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    
-    
-    // Sends I2C START signal
-    i2c_master_start(cmd);
-    
-    // Sends I2C WRITE header
-    i2c_master_write_byte(cmd, chip_addr << 1 | WRITE_BIT, ACK_CHECK_EN);
-    // i2c_master_write_byte(cmd, data_addr, ACK_CHECK_EN);
-
-    // Writes data to chip 
-    for (int i = 0; i < len; i++) {
-        i2c_master_write_byte(cmd, data_wr[i], ACK_CHECK_EN);
-    }
-    
-    // Sends I2C STOP signal
-    i2c_master_stop(cmd);
-
-
-    
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 2000 / portTICK_RATE_MS);
-    i2c_cmd_link_delete(cmd);
-
-     if (ret == ESP_OK) {
-        // ESP_LOGI(TAG, "I2C Write Success: %02x", data_wr[0]);
-    } else if (ret == ESP_ERR_TIMEOUT) {
-        ESP_LOGW(TAG, "I2C Read bus is busy");
-    } else {
-        ESP_LOGW(TAG, "I2C Read failed");
-    }
-
-    // i2c_driver_delete(I2C_NUM_0);
-
-    return 0;
-}
-
-void sgp30_init(sgp30_t *sensor) {
-    i2c_master_driver_initialize();    
-    vTaskDelay(1000 / portTICK_RATE_MS);
-    
     sgp30_execute_command(GET_SERIAL_ID, 2, 10, sensor->serial_number, 3);
     ESP_LOGI(TAG, "%s - Serial Number: %02x %02x %02x", __FUNCTION__, sensor->serial_number[0],
                                 sensor->serial_number[1], sensor->serial_number[2]);
@@ -264,7 +130,8 @@ bool sgp30_execute_command(uint8_t command[], uint8_t command_len, uint16_t dela
                             uint16_t *read_data, uint8_t read_len) {
     
     // Writes SGP30 Command
-    if (sgp30_i2c_master_write(command, command_len) != ESP_OK) {
+    // if (sgp30_i2c_master_write(command, command_len) != ESP_OK) {
+    if (dev.i2c_write(NULL_REG, command, command_len, dev.intf_ptr) != ESP_OK) {
         ESP_LOGW(TAG, "Failed to write SGP30 I2C command!");
         return false;  
     }
@@ -281,7 +148,8 @@ bool sgp30_execute_command(uint8_t command[], uint8_t command_len, uint16_t dela
     uint8_t reply_len = read_len * (SGP30_WORD_LEN + 1);
     uint8_t reply_buffer[reply_len];
 
-    if (sgp30_i2c_master_read(reply_buffer, reply_len) != ESP_OK) {
+    // if (sgp30_i2c_master_read(reply_buffer, reply_len) != ESP_OK) {
+    if (dev.i2c_read(NULL_REG, reply_buffer, reply_len, dev.intf_ptr) != ESP_OK) {
         ESP_LOGW(TAG, "Failed to read SGP30 I2C command reply!");
         return false;  // failed to read reply buffer from chip
     }
