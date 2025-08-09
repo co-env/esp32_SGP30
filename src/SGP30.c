@@ -190,7 +190,7 @@ static esp_err_t sgp30_execute_command(sgp30_dev_t *device, uint8_t command[], u
     }
 
     // Waits for device to process command and measure desired value
-    vTaskDelay(delay / portTICK_RATE_MS);
+    vTaskDelay(delay / portTICK_PERIOD_MS);
 
     // Checks if there is data to be read from the user, (or if it's just a simple command write)
     if (read_len == 0) {
