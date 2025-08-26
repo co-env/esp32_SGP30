@@ -93,7 +93,7 @@ int8_t main_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *in
     i2c_master_read_byte(cmd, reg_data + len - 1, NACK_VAL);
     i2c_master_stop(cmd);
 
-    ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
+    ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_PERIOD_MS);
     
     i2c_cmd_link_delete(cmd);
     
@@ -127,7 +127,7 @@ int8_t main_i2c_write(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *i
     i2c_master_write(cmd, reg_data, len, ACK_CHECK_EN);
     i2c_master_stop(cmd);
 
-    ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
+    ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_PERIOD_MS);
     
     i2c_cmd_link_delete(cmd);
     
@@ -146,7 +146,7 @@ static void main_task(void *arg) {
 
     // SGP30 needs to be read every 1s and sends TVOC = 400 14 times when initializing
     for (int i = 0; i < 14; i++) {
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
         sgp30_IAQ_measure(&main_sgp30_sensor);
         ESP_LOGI(TAG, "SGP30 Calibrating... TVOC: %d,  eCO2: %d",  main_sgp30_sensor.TVOC, main_sgp30_sensor.eCO2);
     }
@@ -159,7 +159,7 @@ static void main_task(void *arg) {
 
     ESP_LOGI(TAG, "SGP30 main task is running...");
     while(1) {
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
         sgp30_IAQ_measure(&main_sgp30_sensor);
 
         ESP_LOGI(TAG, "TVOC: %d,  eCO2: %d",  main_sgp30_sensor.TVOC, main_sgp30_sensor.eCO2);
